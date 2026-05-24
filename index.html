@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Seed is Growing - Piano Score by Rongjin Yu</title>
     <script src="https://www.verovio.org/javascript/latest/verovio-toolkit-wasm.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/midi-player-js@2.0.16/browser/midiplayer.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -52,7 +53,7 @@
             flex-wrap: wrap;
         }
 
-        .controls button {
+        .controls button, .controls a.btn {
             padding: 0.6rem 1.6rem;
             font-size: 1rem;
             font-family: inherit;
@@ -62,9 +63,11 @@
             border-radius: 4px;
             cursor: pointer;
             transition: all 0.2s;
+            text-decoration: none;
+            display: inline-block;
         }
 
-        .controls button:hover {
+        .controls button:hover, .controls a.btn:hover {
             background: #f0ebe3;
         }
 
@@ -142,11 +145,15 @@
             margin-top: 2rem;
         }
 
+        footer a {
+            color: #8a7e6e;
+        }
+
         @media (max-width: 600px) {
             header h1 { font-size: 1.6rem; }
             header .composer { font-size: 0.95rem; }
             .controls { gap: 0.5rem; }
-            .controls button { padding: 0.5rem 1rem; font-size: 0.9rem; }
+            .controls button, .controls a.btn { padding: 0.5rem 1rem; font-size: 0.9rem; }
         }
     </style>
 </head>
@@ -164,7 +171,7 @@
             <input type="range" id="tempo" min="40" max="200" value="100">
             <span id="tempo-val">100</span>
         </div>
-        <button id="btn-pdf" disabled>&#128196; Download PDF</button>
+        <a class="btn" href="Seed_is_growing.pdf" download>&#128196; Download PDF</a>
         <span id="status">Loading...</span>
     </div>
 
@@ -176,27 +183,22 @@
     </div>
 
     <footer>
-        &copy; Rongjin Yu. Score rendered with Verovio.
+        &copy; Rongjin Yu. Licensed under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank">CC BY 4.0</a>. Score rendered with Verovio.
     </footer>
 
     <script>
         // --- State ---
         let vrvToolkit = null;
-        let midiData = null;
+        let midiBase64 = null;
         let isPlaying = false;
         let audioContext = null;
-        let scheduledNotes = [];
-        let startTime = 0;
-        let animationFrame = null;
-        let midiEvents = [];
-        let totalPages = 0;
-        let svgPages = [];
-        let originalMusicXml = '';
+        let piano = null;
+        let midiPlayer = null;
+        let playingNodes = [];
 
         // --- UI Elements ---
         const btnPlay = document.getElementById('btn-play');
         const btnStop = document.getElementById('btn-stop');
-        const btnPdf = document.getElementById('btn-pdf');
         const tempoSlider = document.getElementById('tempo');
         const tempoVal = document.getElementById('tempo-val');
         const statusEl = document.getElementById('status');
@@ -206,21 +208,17 @@
             tempoVal.textContent = tempoSlider.value;
         });
 
-        // --- Initialize Verovio ---
-        async function initVerovio() {
+        // --- Initialize Verovio + Piano ---
+        async function init() {
             try {
                 statusEl.textContent = 'Loading Verovio...';
-
-                // Wait for the WASM module
                 const VerovioModule = await verovio.module;
                 vrvToolkit = new verovio.toolkit();
 
                 statusEl.textContent = 'Loading score...';
-
                 const response = await fetch('Seed_is_growing_edited.musicxml');
                 if (!response.ok) throw new Error('Failed to fetch MusicXML file');
                 const musicxml = await response.text();
-                originalMusicXml = musicxml;
 
                 vrvToolkit.setOptions({
                     pageWidth: 1200,
@@ -235,250 +233,40 @@
                 });
 
                 vrvToolkit.loadData(musicxml);
-                totalPages = vrvToolkit.getPageCount();
+                const totalPages = vrvToolkit.getPageCount();
 
                 // Render all pages
                 scoreContainer.innerHTML = '';
-                svgPages = [];
                 for (let i = 1; i <= totalPages; i++) {
-                    const svgStr = vrvToolkit.renderToSVG(i);
-                    svgPages.push(svgStr);
                     const wrapper = document.createElement('div');
-                    wrapper.innerHTML = svgStr;
+                    wrapper.innerHTML = vrvToolkit.renderToSVG(i);
                     scoreContainer.appendChild(wrapper);
                 }
 
-                // Generate MIDI for playback
-                midiData = vrvToolkit.renderToMIDI();
-                parseMidi(midiData);
+                // Generate MIDI
+                midiBase64 = vrvToolkit.renderToMIDI();
+
+                // Load piano soundfont
+                statusEl.textContent = 'Loading piano...';
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                piano = await Soundfont.instrument(audioContext, 'acoustic_grand_piano');
 
                 statusEl.textContent = 'Ready';
                 btnPlay.disabled = false;
-                btnPdf.disabled = false;
             } catch (err) {
-                console.error('Error loading score:', err);
-                scoreContainer.innerHTML = '<p class="loading">Error loading score: ' + err.message + '</p>';
+                console.error('Error loading:', err);
+                scoreContainer.innerHTML = '<p class="loading">Error: ' + err.message + '</p>';
                 statusEl.textContent = 'Error';
             }
         }
 
-        // Start loading once Verovio script is ready
         if (typeof verovio !== 'undefined') {
-            initVerovio();
+            init();
         } else {
-            // Wait for script to load
-            window.addEventListener('load', initVerovio);
+            window.addEventListener('load', init);
         }
 
-        // --- PDF Download ---
-        function svgToImage(svgStr, width, height) {
-            return new Promise((resolve, reject) => {
-                const canvas = document.createElement('canvas');
-                const scale = 3; // high-res
-                canvas.width = width * scale;
-                canvas.height = height * scale;
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#fff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                const img = new Image();
-                const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
-                const url = URL.createObjectURL(blob);
-
-                img.onload = () => {
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    URL.revokeObjectURL(url);
-                    resolve(canvas.toDataURL('image/png'));
-                };
-                img.onerror = (e) => {
-                    URL.revokeObjectURL(url);
-                    reject(new Error('Failed to render SVG to image'));
-                };
-                img.src = url;
-            });
-        }
-
-        btnPdf.addEventListener('click', async () => {
-            if (!vrvToolkit || !originalMusicXml) return;
-            btnPdf.disabled = true;
-            statusEl.textContent = 'Generating PDF...';
-
-            try {
-                const { jsPDF } = window.jspdf;
-
-                // Re-render with A4 print settings
-                vrvToolkit.setOptions({
-                    pageWidth: 2100,
-                    pageHeight: 2970,
-                    pageMarginLeft: 100,
-                    pageMarginRight: 100,
-                    pageMarginTop: 100,
-                    pageMarginBottom: 100,
-                    scale: 40,
-                    adjustPageHeight: false,
-                    breaks: 'auto'
-                });
-                vrvToolkit.loadData(originalMusicXml);
-
-                const pdfPages = vrvToolkit.getPageCount();
-                const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-                for (let i = 1; i <= pdfPages; i++) {
-                    if (i > 1) doc.addPage();
-                    const svgStr = vrvToolkit.renderToSVG(i);
-                    const imgData = await svgToImage(svgStr, 2100, 2970);
-                    doc.addImage(imgData, 'PNG', 0, 0, 210, 297);
-                }
-
-                doc.save('Seed_is_Growing_-_Rongjin_Yu.pdf');
-
-                // Restore screen rendering and re-render display
-                vrvToolkit.setOptions({
-                    pageWidth: 1200,
-                    pageMarginLeft: 40,
-                    pageMarginRight: 40,
-                    pageMarginTop: 40,
-                    pageMarginBottom: 40,
-                    scale: 50,
-                    adjustPageHeight: true,
-                    breaks: 'auto'
-                });
-                vrvToolkit.loadData(originalMusicXml);
-
-                statusEl.textContent = 'Ready';
-            } catch (err) {
-                console.error('PDF generation error:', err);
-                statusEl.textContent = 'PDF error: ' + err.message;
-            }
-            btnPdf.disabled = false;
-        });
-
-        // --- Simple MIDI parser (base64 -> note events) ---
-        function parseMidi(base64Midi) {
-            const binary = atob(base64Midi);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) {
-                bytes[i] = binary.charCodeAt(i);
-            }
-            midiEvents = extractNoteEvents(bytes);
-        }
-
-        function extractNoteEvents(bytes) {
-            let pos = 0;
-
-            // Read header
-            if (String.fromCharCode(...bytes.slice(0, 4)) !== 'MThd') return [];
-            pos = 8;
-            const format = (bytes[pos] << 8) | bytes[pos + 1]; pos += 2;
-            const numTracks = (bytes[pos] << 8) | bytes[pos + 1]; pos += 2;
-            const ticksPerQuarter = (bytes[pos] << 8) | bytes[pos + 1]; pos += 2;
-
-            let globalEvents = [];
-            for (let t = 0; t < numTracks; t++) {
-                if (pos + 8 > bytes.length) break;
-                const trackHeader = String.fromCharCode(...bytes.slice(pos, pos + 4));
-                pos += 4;
-                if (trackHeader !== 'MTrk') break;
-                const trackLen = (bytes[pos] << 24) | (bytes[pos+1] << 16) | (bytes[pos+2] << 8) | bytes[pos+3];
-                pos += 4;
-                const trackEnd = pos + trackLen;
-
-                let tick = 0;
-                let lastStatus = 0;
-
-                while (pos < trackEnd && pos < bytes.length) {
-                    let delta = 0;
-                    let b;
-                    do {
-                        b = bytes[pos++];
-                        delta = (delta << 7) | (b & 0x7f);
-                    } while (b & 0x80 && pos < trackEnd);
-                    tick += delta;
-
-                    let statusByte = bytes[pos];
-                    if (statusByte & 0x80) {
-                        lastStatus = statusByte;
-                        pos++;
-                    } else {
-                        statusByte = lastStatus;
-                    }
-
-                    const eventType = statusByte & 0xf0;
-                    const channel = statusByte & 0x0f;
-
-                    if (eventType === 0x90 || eventType === 0x80) {
-                        const note = bytes[pos++];
-                        const velocity = bytes[pos++];
-                        if (eventType === 0x90 && velocity > 0) {
-                            globalEvents.push({ type: 'on', tick, note, velocity, channel });
-                        } else {
-                            globalEvents.push({ type: 'off', tick, note, channel });
-                        }
-                    } else if (eventType === 0xa0) { pos += 2; }
-                    else if (eventType === 0xb0) { pos += 2; }
-                    else if (eventType === 0xc0) { pos += 1; }
-                    else if (eventType === 0xd0) { pos += 1; }
-                    else if (eventType === 0xe0) { pos += 2; }
-                    else if (statusByte === 0xff) {
-                        const metaType = bytes[pos++];
-                        let len = 0;
-                        do {
-                            b = bytes[pos++];
-                            len = (len << 7) | (b & 0x7f);
-                        } while (b & 0x80 && pos < trackEnd);
-                        pos += len;
-                    } else if (statusByte === 0xf0 || statusByte === 0xf7) {
-                        let len = 0;
-                        do {
-                            b = bytes[pos++];
-                            len = (len << 7) | (b & 0x7f);
-                        } while (b & 0x80 && pos < trackEnd);
-                        pos += len;
-                    }
-                }
-                pos = trackEnd;
-            }
-
-            const secondsPerTick = 60.0 / (120 * ticksPerQuarter);
-            globalEvents.forEach(e => { e.time = e.tick * secondsPerTick; });
-            globalEvents.sort((a, b) => a.time - b.time || (a.type === 'off' ? -1 : 1));
-            return globalEvents;
-        }
-
-        // --- Piano synth using Web Audio API ---
-        function createPianoNote(ctx, frequency, velocity, time, duration) {
-            const gain = ctx.createGain();
-            const osc1 = ctx.createOscillator();
-            const osc2 = ctx.createOscillator();
-
-            osc1.type = 'triangle';
-            osc1.frequency.value = frequency;
-            osc2.type = 'sine';
-            osc2.frequency.value = frequency * 2;
-
-            const vol = (velocity / 127) * 0.3;
-            gain.gain.setValueAtTime(0, time);
-            gain.gain.linearRampToValueAtTime(vol, time + 0.01);
-            gain.gain.setValueAtTime(vol, time + Math.max(0.01, duration - 0.1));
-            gain.gain.exponentialRampToValueAtTime(0.001, time + duration + 0.3);
-
-            osc1.connect(gain);
-            osc2.connect(gain);
-            gain.connect(ctx.destination);
-
-            osc1.start(time);
-            osc1.stop(time + duration + 0.4);
-            osc2.start(time);
-            osc2.stop(time + duration + 0.4);
-
-            return { osc1, osc2, gain };
-        }
-
-        function midiToFreq(note) {
-            return 440 * Math.pow(2, (note - 69) / 12);
-        }
-
-        // --- Playback ---
+        // --- Playback with midi-player-js + soundfont-player ---
         btnPlay.addEventListener('click', () => {
             if (isPlaying) return;
             play();
@@ -489,87 +277,84 @@
         });
 
         function play() {
-            if (midiEvents.length === 0) return;
+            if (!midiBase64 || !piano) return;
 
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            // Resume audio context if suspended (browser autoplay policy)
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
             isPlaying = true;
             btnPlay.disabled = true;
             btnPlay.classList.add('playing');
             btnStop.disabled = false;
-            statusEl.textContent = 'Playing...';
 
-            const tempoRatio = 100 / parseInt(tempoSlider.value);
+            // Set up MIDI player
+            midiPlayer = new MidiPlayer.Player();
 
-            const noteMap = {};
-            const notes = [];
-            midiEvents.forEach(e => {
-                const key = `${e.note}-${e.channel}`;
-                if (e.type === 'on') {
-                    noteMap[key] = e;
-                } else if (e.type === 'off' && noteMap[key]) {
-                    const onEvent = noteMap[key];
-                    notes.push({
-                        note: onEvent.note,
-                        velocity: onEvent.velocity,
-                        start: onEvent.time * tempoRatio,
-                        duration: (e.time - onEvent.time) * tempoRatio
+            const tempo = parseInt(tempoSlider.value);
+
+            midiPlayer.on('midiEvent', (event) => {
+                if (!isPlaying) return;
+
+                // Note On
+                if (event.name === 'Note on' && event.velocity > 0) {
+                    const node = piano.play(event.noteNumber, audioContext.currentTime, {
+                        gain: event.velocity / 127 * 2,
+                        duration: 2
                     });
-                    delete noteMap[key];
+                    playingNodes.push(node);
+                }
+
+                // Note Off
+                if (event.name === 'Note off' || (event.name === 'Note on' && event.velocity === 0)) {
+                    // soundfont-player handles decay naturally
                 }
             });
 
-            startTime = audioContext.currentTime;
-            const totalDuration = notes.reduce((max, n) => Math.max(max, n.start + n.duration), 0);
-
-            notes.forEach(n => {
-                createPianoNote(
-                    audioContext,
-                    midiToFreq(n.note),
-                    n.velocity,
-                    startTime + n.start,
-                    Math.max(0.05, n.duration)
-                );
-            });
-
-            trackPlayback(totalDuration, tempoRatio);
-
-            setTimeout(() => {
-                if (isPlaying) stop();
-            }, (totalDuration + 1) * 1000);
-        }
-
-        function trackPlayback(totalDuration, tempoRatio) {
-            const tick = () => {
+            midiPlayer.on('playing', (currentTick) => {
                 if (!isPlaying) return;
-                const elapsed = audioContext.currentTime - startTime;
-                const progress = Math.min(elapsed / totalDuration, 1);
-                statusEl.textContent = `Playing... ${formatTime(elapsed)} / ${formatTime(totalDuration)}`;
 
+                // Update time display
+                const songTime = currentTick.getSongTime ? currentTick.getSongTime() : 0;
+                const totalTime = midiPlayer.getSongTime ? midiPlayer.getSongTime() : 0;
+                statusEl.textContent = `Playing... ${formatTime(songTime)} / ${formatTime(totalTime)}`;
+
+                // Highlight notes using Verovio's timing
                 try {
-                    const timeMs = (elapsed / tempoRatio) * 1000;
+                    const timeMs = songTime * 1000;
                     const elements = vrvToolkit.getElementsAtTime(timeMs);
+
+                    // Clear previous highlights
                     document.querySelectorAll('.note-highlight').forEach(el => {
                         el.classList.remove('note-highlight');
-                        el.style.fill = '';
+                        el.querySelectorAll('*').forEach(c => { c.style.fill = ''; });
                     });
+
                     if (elements && elements.notes) {
                         elements.notes.forEach(id => {
                             const el = document.getElementById(id);
                             if (el) {
                                 el.classList.add('note-highlight');
-                                el.querySelectorAll('*').forEach(child => {
-                                    child.style.fill = '#c0392b';
+                                el.querySelectorAll('*').forEach(c => {
+                                    c.style.fill = '#c0392b';
                                 });
+                                // Scroll into view if needed
+                                el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
                             }
                         });
                     }
                 } catch(e) {}
+            });
 
-                if (progress < 1) {
-                    animationFrame = requestAnimationFrame(tick);
-                }
-            };
-            animationFrame = requestAnimationFrame(tick);
+            midiPlayer.on('endOfFile', () => {
+                stop();
+            });
+
+            // Load and play
+            midiPlayer.loadDataUri('data:audio/midi;base64,' + midiBase64);
+            midiPlayer.tempo = tempo;
+            midiPlayer.play();
         }
 
         function formatTime(seconds) {
@@ -585,23 +370,22 @@
             btnStop.disabled = true;
             statusEl.textContent = 'Ready';
 
-            if (animationFrame) {
-                cancelAnimationFrame(animationFrame);
-                animationFrame = null;
+            if (midiPlayer) {
+                midiPlayer.stop();
+                midiPlayer = null;
             }
 
+            // Stop all sounding notes
+            playingNodes.forEach(node => {
+                try { node.stop(); } catch(e) {}
+            });
+            playingNodes = [];
+
+            // Clear highlights
             document.querySelectorAll('.note-highlight').forEach(el => {
                 el.classList.remove('note-highlight');
-                el.querySelectorAll('*').forEach(child => {
-                    child.style.fill = '';
-                });
+                el.querySelectorAll('*').forEach(c => { c.style.fill = ''; });
             });
-
-            if (audioContext) {
-                audioContext.close();
-                audioContext = null;
-            }
-            scheduledNotes = [];
         }
     </script>
 </body>

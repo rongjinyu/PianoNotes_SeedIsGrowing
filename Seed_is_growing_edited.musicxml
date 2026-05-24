@@ -4,9 +4,8 @@
   <work>
     <work-title>Seed is growing </work-title>
   </work>
-  <movement-title>Flow 1</movement-title>
   <identification>
-    <creator type="composer">Music21</creator>
+    <creator type="composer">Rongjin Yu</creator>
     <encoding>
       <encoding-date>2026-05-24</encoding-date>
       <software>music21 v.10.1.0</software>
@@ -71,13 +70,13 @@
     <credit-words default-x="593.75" default-y="1521.88" font-family="Arial" font-size="20" justify="center" valign="middle">Seed is growing </credit-words>
   </credit>
   <credit page="1">
-    <credit-words color="#C0C0C0" default-x="83.75" default-y="1461.88" font-family="Arial" font-size="10" justify="left" valign="middle">Project Lyricist</credit-words>
+    <credit-words color="#C0C0C0" default-x="83.75" default-y="1461.88" font-family="Arial" font-size="8" justify="left" valign="middle">GYAN (Guildhall Young Artists Norwich)</credit-words>
   </credit>
   <credit page="1">
-    <credit-words color="#C0C0C0" default-x="1103.75" default-y="1461.88" font-family="Arial" font-size="10" justify="right" valign="middle">Project Composer</credit-words>
+    <credit-words color="#C0C0C0" default-x="1103.75" default-y="1461.88" font-family="Arial" font-size="10" justify="right" valign="middle">Rongjin Yu</credit-words>
   </credit>
   <credit page="1">
-    <credit-words color="#C0C0C0" default-x="593.75" default-y="84.375" font-family="Arial" font-size="8" justify="center" valign="bottom">Project Copyright</credit-words>
+    <credit-words color="#C0C0C0" default-x="593.75" default-y="84.375" font-family="Arial" font-size="8" justify="center" valign="bottom">CC BY 4.0 Copyright (c) 2026 Rongjin Yu. Engraved with Dorico iOS.</credit-words>
   </credit>
   <part-list>
     <part-group number="1" type="start">
@@ -137,7 +136,7 @@
       </direction>
       <direction>
         <direction-type>
-          <words default-y="45" font-weight="bold">Andante con moto</words>
+          <words default-y="45" font-weight="bold">Andante</words>
         </direction-type>
         <staff>1</staff>
       </direction>
