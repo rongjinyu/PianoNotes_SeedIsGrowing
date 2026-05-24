@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seed is Growing - Piano Score by Rongjin Yu</title>
+    <script src="https://www.verovio.org/javascript/develop/verovio-toolkit-wasm.js" defer></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            background: #faf8f5;
+            color: #333;
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            padding: 3rem 1rem 1.5rem;
+            background: linear-gradient(135deg, #f5f0e8, #e8e0d0);
+            border-bottom: 1px solid #d4c9b8;
+        }
+
+        header h1 {
+            font-size: 2.4rem;
+            font-weight: 400;
+            letter-spacing: 0.08em;
+            color: #2c2c2c;
+            margin-bottom: 0.4rem;
+        }
+
+        header .composer {
+            font-size: 1.1rem;
+            color: #666;
+            font-style: italic;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: #fff;
+            border-bottom: 1px solid #e0d8cc;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .controls button {
+            padding: 0.6rem 1.6rem;
+            font-size: 1rem;
+            font-family: inherit;
+            border: 1px solid #b0a48e;
+            background: #fff;
+            color: #333;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .controls button:hover {
+            background: #f0ebe3;
+        }
+
+        .controls button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .controls button.playing {
+            background: #e8ddd0;
+            border-color: #8a7e6e;
+        }
+
+        .tempo-control {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .tempo-control input[type="range"] {
+            width: 100px;
+            accent-color: #8a7e6e;
+        }
+
+        #status {
+            font-size: 0.85rem;
+            color: #888;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        #score-container {
+            max-width: 1000px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        #score-container svg {
+            width: 100%;
+            height: auto;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 4rem;
+            color: #999;
+            font-size: 1.1rem;
+        }
+
+        .loading .spinner {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #ddd;
+            border-top-color: #8a7e6e;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: #aaa;
+            font-size: 0.85rem;
+            border-top: 1px solid #e0d8cc;
+            margin-top: 2rem;
+        }
+
+        /* Highlight currently playing note */
+        .note.playing rect,
+        .note.playing use {
+            fill: #c0392b;
+        }
+
+        @media (max-width: 600px) {
+            header h1 { font-size: 1.6rem; }
+            header .composer { font-size: 0.95rem; }
+            .controls { flex-wrap: wrap; gap: 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Seed is Growing</h1>
+        <p class="composer">Composed by Rongjin Yu</p>
+    </header>
+
+    <div class="controls">
+        <button id="btn-play" disabled>&#9654; Play</button>
+        <button id="btn-stop" disabled>&#9632; Stop</button>
+        <div class="tempo-control">
+            <label for="tempo">Tempo:</label>
+            <input type="range" id="tempo" min="40" max="200" value="100">
+            <span id="tempo-val">100</span>
+        </div>
+        <span id="status">Loading...</span>
+    </div>
+
+    <div id="score-container">
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Loading score...</p>
+        </div>
+    </div>
+
+    <footer>
+        &copy; Rongjin Yu. Score rendered with Verovio.
+    </footer>
+
+    <script>
+        // --- State ---
+        let vrvToolkit = null;
+        let midiData = null;
+        let isPlaying = false;
+        let audioContext = null;
+        let scheduledNotes = [];
+        let startTime = 0;
+        let animationFrame = null;
+        let midiEvents = [];
+        let currentPage = 0;
+        let totalPages = 0;
+
+        // --- UI Elements ---
+        const btnPlay = document.getElementById('btn-play');
+        const btnStop = document.getElementById('btn-stop');
+        const tempoSlider = document.getElementById('tempo');
+        const tempoVal = document.getElementById('tempo-val');
+        const status = document.getElementById('status');
+        const scoreContainer = document.getElementById('score-container');
+
+        tempoSlider.addEventListener('input', () => {
+            tempoVal.textContent = tempoSlider.value;
+        });
+
+        // --- Initialize Verovio ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const VerovioModule = await verovio.module;
+                vrvToolkit = new verovio.toolkit();
+
+                const response = await fetch('Seed_is_growing_edited.musicxml');
+                const musicxml = await response.text();
+
+                const options = {
+                    pageWidth: 950,
+                    pageMarginLeft: 30,
+                    pageMarginRight: 30,
+                    pageMarginTop: 30,
+                    pageMarginBottom: 30,
+                    scale: 45,
+                    adjustPageHeight: true,
+                    breaks: 'auto',
+                    font: 'Bravura'
+                };
+
+                vrvToolkit.setOptions(options);
+                vrvToolkit.loadData(musicxml);
+
+                totalPages = vrvToolkit.getPageCount();
+
+                // Render all pages
+                let allSvg = '';
+                for (let i = 1; i <= totalPages; i++) {
+                    allSvg += vrvToolkit.renderToSVG(i);
+                }
+                scoreContainer.innerHTML = allSvg;
+
+                // Generate MIDI
+                midiData = vrvToolkit.renderToMIDI();
+
+                // Parse MIDI for playback
+                parseMidi(midiData);
+
+                status.textContent = 'Ready';
+                btnPlay.disabled = false;
+            } catch (err) {
+                console.error('Error loading score:', err);
+                scoreContainer.innerHTML = '<p class="loading">Error loading score. Please refresh.</p>';
+                status.textContent = 'Error';
+            }
+        });
+
+        // --- Simple MIDI parser (base64 -> note events) ---
+        function parseMidi(base64Midi) {
+            const binary = atob(base64Midi);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            midiEvents = extractNoteEvents(bytes);
+        }
+
+        function extractNoteEvents(bytes) {
+            const events = [];
+            let pos = 0;
+
+            // Read header
+            if (String.fromCharCode(...bytes.slice(0, 4)) !== 'MThd') return events;
+            pos = 8;
+            const format = (bytes[pos] << 8) | bytes[pos + 1]; pos += 2;
+            const numTracks = (bytes[pos] << 8) | bytes[pos + 1]; pos += 2;
+            const ticksPerQuarter = (bytes[pos] << 8) | bytes[pos + 1]; pos += 2;
+
+            // Read tracks
+            let globalEvents = [];
+            for (let t = 0; t < numTracks; t++) {
+                if (pos + 8 > bytes.length) break;
+                const trackHeader = String.fromCharCode(...bytes.slice(pos, pos + 4));
+                pos += 4;
+                if (trackHeader !== 'MTrk') break;
+                const trackLen = (bytes[pos] << 24) | (bytes[pos+1] << 16) | (bytes[pos+2] << 8) | bytes[pos+3];
+                pos += 4;
+                const trackEnd = pos + trackLen;
+
+                let tick = 0;
+                let lastStatus = 0;
+
+                while (pos < trackEnd && pos < bytes.length) {
+                    // Read variable-length delta time
+                    let delta = 0;
+                    let b;
+                    do {
+                        b = bytes[pos++];
+                        delta = (delta << 7) | (b & 0x7f);
+                    } while (b & 0x80 && pos < trackEnd);
+                    tick += delta;
+
+                    // Read event
+                    let statusByte = bytes[pos];
+                    if (statusByte & 0x80) {
+                        lastStatus = statusByte;
+                        pos++;
+                    } else {
+                        statusByte = lastStatus;
+                    }
+
+                    const eventType = statusByte & 0xf0;
+                    const channel = statusByte & 0x0f;
+
+                    if (eventType === 0x90 || eventType === 0x80) {
+                        const note = bytes[pos++];
+                        const velocity = bytes[pos++];
+                        if (eventType === 0x90 && velocity > 0) {
+                            globalEvents.push({ type: 'on', tick, note, velocity, channel });
+                        } else {
+                            globalEvents.push({ type: 'off', tick, note, channel });
+                        }
+                    } else if (eventType === 0xa0) { pos += 2; }
+                    else if (eventType === 0xb0) { pos += 2; }
+                    else if (eventType === 0xc0) { pos += 1; }
+                    else if (eventType === 0xd0) { pos += 1; }
+                    else if (eventType === 0xe0) { pos += 2; }
+                    else if (statusByte === 0xff) {
+                        const metaType = bytes[pos++];
+                        let len = 0;
+                        do {
+                            b = bytes[pos++];
+                            len = (len << 7) | (b & 0x7f);
+                        } while (b & 0x80 && pos < trackEnd);
+                        // Tempo change
+                        if (metaType === 0x51 && len === 3) {
+                            // We could handle tempo changes here but we use the slider
+                        }
+                        pos += len;
+                    } else if (statusByte === 0xf0 || statusByte === 0xf7) {
+                        let len = 0;
+                        do {
+                            b = bytes[pos++];
+                            len = (len << 7) | (b & 0x7f);
+                        } while (b & 0x80 && pos < trackEnd);
+                        pos += len;
+                    }
+                }
+                pos = trackEnd;
+            }
+
+            // Convert ticks to relative seconds (at default 120 BPM)
+            // Actual tempo scaling happens at playback time
+            const secondsPerTick = 60.0 / (120 * ticksPerQuarter);
+            globalEvents.forEach(e => {
+                e.time = e.tick * secondsPerTick;
+            });
+            globalEvents.sort((a, b) => a.time - b.time || (a.type === 'off' ? -1 : 1));
+
+            return globalEvents;
+        }
+
+        // --- Piano synth using Web Audio API ---
+        function createPianoNote(ctx, frequency, velocity, startTime, duration) {
+            const gain = ctx.createGain();
+            const osc1 = ctx.createOscillator();
+            const osc2 = ctx.createOscillator();
+
+            // Simple piano-like timbre
+            osc1.type = 'triangle';
+            osc1.frequency.value = frequency;
+            osc2.type = 'sine';
+            osc2.frequency.value = frequency * 2;
+
+            const vol = (velocity / 127) * 0.3;
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(vol, startTime + 0.01);
+            gain.gain.setValueAtTime(vol, startTime + Math.max(0.01, duration - 0.1));
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration + 0.3);
+
+            osc1.connect(gain);
+            osc2.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc1.start(startTime);
+            osc1.stop(startTime + duration + 0.4);
+            osc2.start(startTime);
+            osc2.stop(startTime + duration + 0.4);
+
+            return { osc1, osc2, gain };
+        }
+
+        function midiToFreq(note) {
+            return 440 * Math.pow(2, (note - 69) / 12);
+        }
+
+        // --- Playback ---
+        btnPlay.addEventListener('click', () => {
+            if (isPlaying) return;
+            play();
+        });
+
+        btnStop.addEventListener('click', () => {
+            stop();
+        });
+
+        function play() {
+            if (midiEvents.length === 0) return;
+
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            isPlaying = true;
+            btnPlay.disabled = true;
+            btnPlay.classList.add('playing');
+            btnStop.disabled = false;
+            status.textContent = 'Playing...';
+
+            const tempoRatio = 100 / parseInt(tempoSlider.value);
+
+            // Build note-on/off pairs
+            const noteMap = {};
+            const notes = [];
+            midiEvents.forEach(e => {
+                const key = `${e.note}-${e.channel}`;
+                if (e.type === 'on') {
+                    noteMap[key] = e;
+                } else if (e.type === 'off' && noteMap[key]) {
+                    const onEvent = noteMap[key];
+                    notes.push({
+                        note: onEvent.note,
+                        velocity: onEvent.velocity,
+                        start: onEvent.time * tempoRatio,
+                        duration: (e.time - onEvent.time) * tempoRatio
+                    });
+                    delete noteMap[key];
+                }
+            });
+
+            startTime = audioContext.currentTime;
+            const totalDuration = notes.reduce((max, n) => Math.max(max, n.start + n.duration), 0);
+
+            notes.forEach(n => {
+                const s = createPianoNote(
+                    audioContext,
+                    midiToFreq(n.note),
+                    n.velocity,
+                    startTime + n.start,
+                    Math.max(0.05, n.duration)
+                );
+                scheduledNotes.push(s);
+            });
+
+            // Highlight tracking with Verovio
+            trackPlayback(totalDuration, tempoRatio);
+
+            // Auto-stop
+            setTimeout(() => {
+                if (isPlaying) stop();
+            }, (totalDuration + 1) * 1000);
+        }
+
+        function trackPlayback(totalDuration, tempoRatio) {
+            const tick = () => {
+                if (!isPlaying) return;
+                const elapsed = audioContext.currentTime - startTime;
+                const progress = Math.min(elapsed / totalDuration, 1);
+                status.textContent = `Playing... ${formatTime(elapsed)} / ${formatTime(totalDuration)}`;
+
+                // Highlight notes using Verovio's time-to-element mapping
+                try {
+                    const timeMs = (elapsed / tempoRatio) * 1000;
+                    const elements = vrvToolkit.getElementsAtTime(timeMs);
+                    // Clear previous highlights
+                    document.querySelectorAll('.note-highlight').forEach(el => {
+                        el.classList.remove('note-highlight');
+                        el.style.fill = '';
+                    });
+                    if (elements && elements.notes) {
+                        elements.notes.forEach(id => {
+                            const el = document.getElementById(id);
+                            if (el) {
+                                el.classList.add('note-highlight');
+                                el.querySelectorAll('*').forEach(child => {
+                                    child.style.fill = '#c0392b';
+                                });
+                            }
+                        });
+                    }
+                } catch(e) { /* ignore highlight errors */ }
+
+                if (progress < 1) {
+                    animationFrame = requestAnimationFrame(tick);
+                }
+            };
+            animationFrame = requestAnimationFrame(tick);
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function stop() {
+            isPlaying = false;
+            btnPlay.disabled = false;
+            btnPlay.classList.remove('playing');
+            btnStop.disabled = true;
+            status.textContent = 'Ready';
+
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+                animationFrame = null;
+            }
+
+            // Clear highlights
+            document.querySelectorAll('.note-highlight').forEach(el => {
+                el.classList.remove('note-highlight');
+                el.querySelectorAll('*').forEach(child => {
+                    child.style.fill = '';
+                });
+            });
+
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            scheduledNotes = [];
+        }
+    </script>
+</body>
+</html>
