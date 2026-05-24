@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Seed is Growing - Piano Score by Rongjin Yu</title>
     <script src="https://www.verovio.org/javascript/latest/verovio-toolkit-wasm.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
@@ -15,25 +15,26 @@
             background: #faf8f5;
             color: #333;
             min-height: 100vh;
+            -webkit-text-size-adjust: 100%;
         }
 
         header {
             text-align: center;
-            padding: 3rem 1rem 1.5rem;
+            padding: 2.5rem 1rem 1.2rem;
             background: linear-gradient(135deg, #f5f0e8, #e8e0d0);
             border-bottom: 1px solid #d4c9b8;
         }
 
         header h1 {
-            font-size: 2.4rem;
+            font-size: 2.2rem;
             font-weight: 400;
             letter-spacing: 0.08em;
             color: #2c2c2c;
-            margin-bottom: 0.4rem;
+            margin-bottom: 0.3rem;
         }
 
         header .composer {
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             color: #666;
             font-style: italic;
         }
@@ -42,8 +43,8 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 1rem;
-            padding: 1rem;
+            gap: 0.6rem;
+            padding: 0.7rem 0.5rem;
             background: #fff;
             border-bottom: 1px solid #e0d8cc;
             position: sticky;
@@ -54,8 +55,8 @@
         }
 
         .controls button, .controls a.btn {
-            padding: 0.6rem 1.6rem;
-            font-size: 1rem;
+            padding: 0.5rem 1.2rem;
+            font-size: 0.95rem;
             font-family: inherit;
             border: 1px solid #b0a48e;
             background: #fff;
@@ -64,7 +65,10 @@
             cursor: pointer;
             transition: all 0.2s;
             text-decoration: none;
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            white-space: nowrap;
         }
 
         .controls button:hover, .controls a.btn:hover {
@@ -84,39 +88,43 @@
         .tempo-control {
             display: flex;
             align-items: center;
-            gap: 0.4rem;
-            font-size: 0.9rem;
+            gap: 0.3rem;
+            font-size: 0.85rem;
             color: #666;
         }
 
         .tempo-control input[type="range"] {
-            width: 100px;
+            width: 80px;
             accent-color: #8a7e6e;
         }
 
         #status {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: #888;
-            min-width: 80px;
+            min-width: 60px;
             text-align: center;
         }
 
         #score-container {
             max-width: 1000px;
-            margin: 2rem auto;
-            padding: 0 1rem;
+            margin: 1.5rem auto;
+            padding: 0 0.5rem;
         }
 
         #score-container svg {
             width: 100%;
             height: auto;
             display: block;
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem;
         }
+
+        /* Note highlighting via CSS class */
+        .note-highlight *[fill] { fill: #c0392b !important; }
+        .note-highlight { color: #c0392b; }
 
         .loading {
             text-align: center;
-            padding: 4rem;
+            padding: 4rem 1rem;
             color: #999;
             font-size: 1.1rem;
         }
@@ -138,22 +146,78 @@
 
         footer {
             text-align: center;
-            padding: 2rem;
+            padding: 1.5rem 1rem;
             color: #aaa;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             border-top: 1px solid #e0d8cc;
-            margin-top: 2rem;
+            margin-top: 1.5rem;
         }
 
-        footer a {
-            color: #8a7e6e;
+        footer a { color: #8a7e6e; }
+
+        /* --- Mobile --- */
+        @media (max-width: 768px) {
+            header {
+                padding: 1.5rem 0.8rem 1rem;
+            }
+
+            header h1 {
+                font-size: 1.5rem;
+                letter-spacing: 0.04em;
+            }
+
+            header .composer {
+                font-size: 0.9rem;
+            }
+
+            .controls {
+                gap: 0.4rem;
+                padding: 0.5rem;
+            }
+
+            .controls button, .controls a.btn {
+                padding: 0.45rem 0.8rem;
+                font-size: 0.82rem;
+            }
+
+            .tempo-control {
+                font-size: 0.78rem;
+            }
+
+            .tempo-control input[type="range"] {
+                width: 60px;
+            }
+
+            #status {
+                font-size: 0.72rem;
+                width: 100%;
+                order: 10;
+            }
+
+            #score-container {
+                margin: 0.8rem auto;
+                padding: 0 0.3rem;
+            }
+
+            footer {
+                font-size: 0.72rem;
+                padding: 1rem;
+            }
         }
 
-        @media (max-width: 600px) {
-            header h1 { font-size: 1.6rem; }
-            header .composer { font-size: 0.95rem; }
-            .controls { gap: 0.5rem; }
-            .controls button, .controls a.btn { padding: 0.5rem 1rem; font-size: 0.9rem; }
+        @media (max-width: 400px) {
+            header h1 {
+                font-size: 1.25rem;
+            }
+
+            .controls button, .controls a.btn {
+                padding: 0.4rem 0.6rem;
+                font-size: 0.75rem;
+            }
+
+            .tempo-control input[type="range"] {
+                width: 50px;
+            }
         }
     </style>
 </head>
@@ -171,7 +235,7 @@
             <input type="range" id="tempo" min="40" max="200" value="100">
             <span id="tempo-val">100</span>
         </div>
-        <a class="btn" href="Seed_is_growing.pdf" download>&#128196; Download PDF</a>
+        <a class="btn" href="Seed_is_growing.pdf" download>&#128196; PDF</a>
         <span id="status">Loading...</span>
     </div>
 
@@ -195,6 +259,11 @@
         let piano = null;
         let midiPlayer = null;
         let playingNodes = [];
+        let playStartTime = 0;
+        let animFrameId = null;
+        let midiOriginalTempo = 120;
+        let totalSongTimeMs = 0;
+        let lastHighlightedIds = [];
 
         // --- UI Elements ---
         const btnPlay = document.getElementById('btn-play');
@@ -231,7 +300,6 @@
                 vrvToolkit.loadData(musicxml);
                 const totalPages = vrvToolkit.getPageCount();
 
-                // Render all pages
                 scoreContainer.innerHTML = '';
                 for (let i = 1; i <= totalPages; i++) {
                     const wrapper = document.createElement('div');
@@ -239,7 +307,6 @@
                     scoreContainer.appendChild(wrapper);
                 }
 
-                // Generate MIDI
                 midiBase64 = vrvToolkit.renderToMIDI();
 
                 // Load piano soundfont
@@ -256,7 +323,6 @@
             }
         }
 
-        // Wait for DOMContentLoaded, then wait for Verovio WASM to initialize
         document.addEventListener('DOMContentLoaded', () => {
             statusEl.textContent = 'Loading Verovio...';
             verovio.module.onRuntimeInitialized = () => {
@@ -265,7 +331,7 @@
             };
         });
 
-        // --- Playback with midi-player-js + soundfont-player ---
+        // --- Playback ---
         btnPlay.addEventListener('click', () => {
             if (isPlaying) return;
             play();
@@ -278,7 +344,6 @@
         function play() {
             if (!midiBase64 || !piano) return;
 
-            // Resume audio context if suspended (browser autoplay policy)
             if (audioContext.state === 'suspended') {
                 audioContext.resume();
             }
@@ -288,72 +353,97 @@
             btnPlay.classList.add('playing');
             btnStop.disabled = false;
 
-            // Set up MIDI player
-            midiPlayer = new MidiPlayer.Player();
+            const userTempo = parseInt(tempoSlider.value);
 
-            const tempo = parseInt(tempoSlider.value);
+            // Set up MIDI player for audio events
+            midiPlayer = new MidiPlayer.Player();
 
             midiPlayer.on('midiEvent', (event) => {
                 if (!isPlaying) return;
-
-                // Note On
                 if (event.name === 'Note on' && event.velocity > 0) {
                     const node = piano.play(event.noteNumber, audioContext.currentTime, {
                         gain: event.velocity / 127 * 2,
-                        duration: 2
+                        duration: 2.5
                     });
                     playingNodes.push(node);
                 }
-
-                // Note Off
-                if (event.name === 'Note off' || (event.name === 'Note on' && event.velocity === 0)) {
-                    // soundfont-player handles decay naturally
-                }
-            });
-
-            midiPlayer.on('playing', (currentTick) => {
-                if (!isPlaying) return;
-
-                // Update time display
-                const songTime = currentTick.getSongTime ? currentTick.getSongTime() : 0;
-                const totalTime = midiPlayer.getSongTime ? midiPlayer.getSongTime() : 0;
-                statusEl.textContent = `Playing... ${formatTime(songTime)} / ${formatTime(totalTime)}`;
-
-                // Highlight notes using Verovio's timing
-                try {
-                    const timeMs = songTime * 1000;
-                    const elements = vrvToolkit.getElementsAtTime(timeMs);
-
-                    // Clear previous highlights
-                    document.querySelectorAll('.note-highlight').forEach(el => {
-                        el.classList.remove('note-highlight');
-                        el.querySelectorAll('*').forEach(c => { c.style.fill = ''; });
-                    });
-
-                    if (elements && elements.notes) {
-                        elements.notes.forEach(id => {
-                            const el = document.getElementById(id);
-                            if (el) {
-                                el.classList.add('note-highlight');
-                                el.querySelectorAll('*').forEach(c => {
-                                    c.style.fill = '#c0392b';
-                                });
-                                // Scroll into view if needed
-                                el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-                            }
-                        });
-                    }
-                } catch(e) {}
             });
 
             midiPlayer.on('endOfFile', () => {
                 stop();
             });
 
-            // Load and play
+            // Load MIDI, read original tempo, then set user tempo
             midiPlayer.loadDataUri('data:audio/midi;base64,' + midiBase64);
-            midiPlayer.tempo = tempo;
+            midiOriginalTempo = midiPlayer.tempo || 120;
+            midiPlayer.tempo = userTempo;
+
+            // Calculate total song time at user tempo
+            const totalTicks = midiPlayer.getTotalTicks ? midiPlayer.getTotalTicks() : 0;
+            totalSongTimeMs = midiPlayer.getSongTime ? midiPlayer.getSongTime() * 1000 : 0;
+
+            // Record play start and begin
+            playStartTime = performance.now();
             midiPlayer.play();
+
+            // Start highlight loop using requestAnimationFrame
+            highlightLoop();
+        }
+
+        function highlightLoop() {
+            if (!isPlaying) return;
+
+            const elapsedMs = performance.now() - playStartTime;
+
+            // Scale elapsed time to Verovio's MIDI timeline
+            // Verovio's getElementsAtTime expects ms in the original MIDI tempo timeline
+            // If user plays at different tempo, we need to scale
+            const tempoScale = parseInt(tempoSlider.value) / midiOriginalTempo;
+            const verovioTimeMs = elapsedMs * tempoScale;
+
+            // Update time display
+            statusEl.textContent = `Playing... ${formatTime(elapsedMs / 1000)}`;
+
+            // Get elements at current time
+            try {
+                const elements = vrvToolkit.getElementsAtTime(verovioTimeMs);
+
+                // Only update DOM if highlighted notes changed
+                const newIds = (elements && elements.notes) ? elements.notes : [];
+                const changed = newIds.length !== lastHighlightedIds.length ||
+                    newIds.some((id, i) => id !== lastHighlightedIds[i]);
+
+                if (changed) {
+                    // Clear previous
+                    lastHighlightedIds.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.classList.remove('note-highlight');
+                    });
+
+                    // Highlight current
+                    newIds.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.classList.add('note-highlight');
+                    });
+
+                    // Scroll to first highlighted note
+                    if (newIds.length > 0) {
+                        const firstEl = document.getElementById(newIds[0]);
+                        if (firstEl) {
+                            const rect = firstEl.getBoundingClientRect();
+                            const viewH = window.innerHeight;
+                            // Only scroll if note is outside visible area
+                            if (rect.top < 80 || rect.bottom > viewH - 40) {
+                                firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                        }
+                    }
+
+                    lastHighlightedIds = newIds;
+                }
+            } catch(e) {}
+
+            animFrameId = requestAnimationFrame(highlightLoop);
         }
 
         function formatTime(seconds) {
@@ -369,22 +459,27 @@
             btnStop.disabled = true;
             statusEl.textContent = 'Ready';
 
+            if (animFrameId) {
+                cancelAnimationFrame(animFrameId);
+                animFrameId = null;
+            }
+
             if (midiPlayer) {
                 midiPlayer.stop();
                 midiPlayer = null;
             }
 
-            // Stop all sounding notes
             playingNodes.forEach(node => {
                 try { node.stop(); } catch(e) {}
             });
             playingNodes = [];
 
             // Clear highlights
-            document.querySelectorAll('.note-highlight').forEach(el => {
-                el.classList.remove('note-highlight');
-                el.querySelectorAll('*').forEach(c => { c.style.fill = ''; });
+            lastHighlightedIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('note-highlight');
             });
+            lastHighlightedIds = [];
         }
     </script>
 </body>
