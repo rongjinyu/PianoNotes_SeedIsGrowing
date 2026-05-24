@@ -85,20 +85,7 @@
             border-color: #8a7e6e;
         }
 
-        .tempo-control {
-            display: flex;
-            align-items: center;
-            gap: 0.3rem;
-            font-size: 0.85rem;
-            color: #666;
-        }
-
-        .tempo-control input[type="range"] {
-            width: 80px;
-            accent-color: #8a7e6e;
-        }
-
-        #status {
+#status {
             font-size: 0.8rem;
             color: #888;
             min-width: 60px;
@@ -180,15 +167,7 @@
                 font-size: 0.82rem;
             }
 
-            .tempo-control {
-                font-size: 0.78rem;
-            }
-
-            .tempo-control input[type="range"] {
-                width: 60px;
-            }
-
-            #status {
+#status {
                 font-size: 0.72rem;
                 width: 100%;
                 order: 10;
@@ -215,9 +194,6 @@
                 font-size: 0.75rem;
             }
 
-            .tempo-control input[type="range"] {
-                width: 50px;
-            }
         }
     </style>
 </head>
@@ -230,12 +206,7 @@
     <div class="controls">
         <button id="btn-play" disabled>&#9654; Play</button>
         <button id="btn-stop" disabled>&#9632; Stop</button>
-        <div class="tempo-control">
-            <label for="tempo">Tempo:</label>
-            <input type="range" id="tempo" min="40" max="200" value="100">
-            <span id="tempo-val">100</span>
-        </div>
-        <a class="btn" href="Seed_is_growing.pdf" download>&#128196; PDF</a>
+<a class="btn" href="Seed_is_growing.pdf" download>&#128196; PDF</a>
         <span id="status">Loading...</span>
     </div>
 
@@ -268,14 +239,8 @@
         // --- UI Elements ---
         const btnPlay = document.getElementById('btn-play');
         const btnStop = document.getElementById('btn-stop');
-        const tempoSlider = document.getElementById('tempo');
-        const tempoVal = document.getElementById('tempo-val');
         const statusEl = document.getElementById('status');
         const scoreContainer = document.getElementById('score-container');
-
-        tempoSlider.addEventListener('input', () => {
-            tempoVal.textContent = tempoSlider.value;
-        });
 
         // --- Initialize Verovio + Piano ---
         async function loadScoreAndPiano() {
@@ -353,8 +318,6 @@
             btnPlay.classList.add('playing');
             btnStop.disabled = false;
 
-            const userTempo = parseInt(tempoSlider.value);
-
             // Set up MIDI player for audio events
             midiPlayer = new MidiPlayer.Player();
 
@@ -373,14 +336,9 @@
                 stop();
             });
 
-            // Load MIDI, read original tempo, then set user tempo
+            // Load MIDI (use original tempo from the score)
             midiPlayer.loadDataUri('data:audio/midi;base64,' + midiBase64);
             midiOriginalTempo = midiPlayer.tempo || 120;
-            midiPlayer.tempo = userTempo;
-
-            // Calculate total song time at user tempo
-            const totalTicks = midiPlayer.getTotalTicks ? midiPlayer.getTotalTicks() : 0;
-            totalSongTimeMs = midiPlayer.getSongTime ? midiPlayer.getSongTime() * 1000 : 0;
 
             // Record play start and begin
             playStartTime = performance.now();
@@ -398,8 +356,7 @@
             // Scale elapsed time to Verovio's MIDI timeline
             // Verovio's getElementsAtTime expects ms in the original MIDI tempo timeline
             // If user plays at different tempo, we need to scale
-            const tempoScale = parseInt(tempoSlider.value) / midiOriginalTempo;
-            const verovioTimeMs = elapsedMs * tempoScale;
+            const verovioTimeMs = elapsedMs;
 
             // Update time display
             statusEl.textContent = `Playing... ${formatTime(elapsedMs / 1000)}`;
