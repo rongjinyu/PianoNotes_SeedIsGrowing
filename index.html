@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Seed is Growing - Piano Score by Rongjin Yu</title>
-    <script src="https://www.verovio.org/javascript/develop/verovio-toolkit-wasm.js" defer></script>
+    <script src="https://www.verovio.org/javascript/latest/verovio-toolkit-wasm.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/svg2pdf.js/2.2.4/svg2pdf.umd.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -48,6 +50,7 @@
             top: 0;
             z-index: 100;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            flex-wrap: wrap;
         }
 
         .controls button {
@@ -105,6 +108,8 @@
         #score-container svg {
             width: 100%;
             height: auto;
+            display: block;
+            margin-bottom: 1rem;
         }
 
         .loading {
@@ -138,16 +143,11 @@
             margin-top: 2rem;
         }
 
-        /* Highlight currently playing note */
-        .note.playing rect,
-        .note.playing use {
-            fill: #c0392b;
-        }
-
         @media (max-width: 600px) {
             header h1 { font-size: 1.6rem; }
             header .composer { font-size: 0.95rem; }
-            .controls { flex-wrap: wrap; gap: 0.5rem; }
+            .controls { gap: 0.5rem; }
+            .controls button { padding: 0.5rem 1rem; font-size: 0.9rem; }
         }
     </style>
 </head>
@@ -165,6 +165,7 @@
             <input type="range" id="tempo" min="40" max="200" value="100">
             <span id="tempo-val">100</span>
         </div>
+        <button id="btn-pdf" disabled>&#128196; Download PDF</button>
         <span id="status">Loading...</span>
     </div>
 
@@ -189,15 +190,16 @@
         let startTime = 0;
         let animationFrame = null;
         let midiEvents = [];
-        let currentPage = 0;
         let totalPages = 0;
+        let svgPages = [];
 
         // --- UI Elements ---
         const btnPlay = document.getElementById('btn-play');
         const btnStop = document.getElementById('btn-stop');
+        const btnPdf = document.getElementById('btn-pdf');
         const tempoSlider = document.getElementById('tempo');
         const tempoVal = document.getElementById('tempo-val');
-        const status = document.getElementById('status');
+        const statusEl = document.getElementById('status');
         const scoreContainer = document.getElementById('score-container');
 
         tempoSlider.addEventListener('input', () => {
@@ -205,51 +207,128 @@
         });
 
         // --- Initialize Verovio ---
-        document.addEventListener('DOMContentLoaded', async () => {
+        async function initVerovio() {
             try {
+                statusEl.textContent = 'Loading Verovio...';
+
+                // Wait for the WASM module
                 const VerovioModule = await verovio.module;
                 vrvToolkit = new verovio.toolkit();
 
+                statusEl.textContent = 'Loading score...';
+
                 const response = await fetch('Seed_is_growing_edited.musicxml');
+                if (!response.ok) throw new Error('Failed to fetch MusicXML file');
                 const musicxml = await response.text();
 
-                const options = {
-                    pageWidth: 950,
-                    pageMarginLeft: 30,
-                    pageMarginRight: 30,
-                    pageMarginTop: 30,
-                    pageMarginBottom: 30,
-                    scale: 45,
+                vrvToolkit.setOptions({
+                    pageWidth: 1200,
+                    pageMarginLeft: 40,
+                    pageMarginRight: 40,
+                    pageMarginTop: 40,
+                    pageMarginBottom: 40,
+                    scale: 50,
                     adjustPageHeight: true,
                     breaks: 'auto',
                     font: 'Bravura'
-                };
+                });
 
-                vrvToolkit.setOptions(options);
                 vrvToolkit.loadData(musicxml);
-
                 totalPages = vrvToolkit.getPageCount();
 
                 // Render all pages
-                let allSvg = '';
+                scoreContainer.innerHTML = '';
+                svgPages = [];
                 for (let i = 1; i <= totalPages; i++) {
-                    allSvg += vrvToolkit.renderToSVG(i);
+                    const svgStr = vrvToolkit.renderToSVG(i);
+                    svgPages.push(svgStr);
+                    const wrapper = document.createElement('div');
+                    wrapper.innerHTML = svgStr;
+                    scoreContainer.appendChild(wrapper);
                 }
-                scoreContainer.innerHTML = allSvg;
 
-                // Generate MIDI
+                // Generate MIDI for playback
                 midiData = vrvToolkit.renderToMIDI();
-
-                // Parse MIDI for playback
                 parseMidi(midiData);
 
-                status.textContent = 'Ready';
+                statusEl.textContent = 'Ready';
                 btnPlay.disabled = false;
+                btnPdf.disabled = false;
             } catch (err) {
                 console.error('Error loading score:', err);
-                scoreContainer.innerHTML = '<p class="loading">Error loading score. Please refresh.</p>';
-                status.textContent = 'Error';
+                scoreContainer.innerHTML = '<p class="loading">Error loading score: ' + err.message + '</p>';
+                statusEl.textContent = 'Error';
             }
+        }
+
+        // Start loading once Verovio script is ready
+        if (typeof verovio !== 'undefined') {
+            initVerovio();
+        } else {
+            // Wait for script to load
+            window.addEventListener('load', initVerovio);
+        }
+
+        // --- PDF Download ---
+        btnPdf.addEventListener('click', async () => {
+            if (!vrvToolkit || totalPages === 0) return;
+            btnPdf.disabled = true;
+            statusEl.textContent = 'Generating PDF...';
+
+            try {
+                const { jsPDF } = window.jspdf;
+
+                // Re-render with print-quality settings
+                vrvToolkit.setOptions({
+                    pageWidth: 2100,
+                    pageHeight: 2970,
+                    pageMarginLeft: 100,
+                    pageMarginRight: 100,
+                    pageMarginTop: 100,
+                    pageMarginBottom: 100,
+                    scale: 40,
+                    adjustPageHeight: false,
+                    breaks: 'auto',
+                    font: 'Bravura'
+                });
+                vrvToolkit.loadData(vrvToolkit.getMEI());
+
+                const pdfPages = vrvToolkit.getPageCount();
+                const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+                for (let i = 1; i <= pdfPages; i++) {
+                    if (i > 1) doc.addPage();
+                    const svgStr = vrvToolkit.renderToSVG(i);
+
+                    // Parse SVG string to DOM element
+                    const parser = new DOMParser();
+                    const svgDoc = parser.parseFromString(svgStr, 'image/svg+xml');
+                    const svgEl = svgDoc.documentElement;
+
+                    await doc.svg(svgEl, { x: 0, y: 0, width: 210, height: 297 });
+                }
+
+                doc.save('Seed_is_Growing_-_Rongjin_Yu.pdf');
+
+                // Restore screen rendering options
+                vrvToolkit.setOptions({
+                    pageWidth: 1200,
+                    pageMarginLeft: 40,
+                    pageMarginRight: 40,
+                    pageMarginTop: 40,
+                    pageMarginBottom: 40,
+                    scale: 50,
+                    adjustPageHeight: true,
+                    breaks: 'auto',
+                    font: 'Bravura'
+                });
+
+                statusEl.textContent = 'Ready';
+            } catch (err) {
+                console.error('PDF generation error:', err);
+                statusEl.textContent = 'PDF error - try again';
+            }
+            btnPdf.disabled = false;
         });
 
         // --- Simple MIDI parser (base64 -> note events) ---
@@ -263,17 +342,15 @@
         }
 
         function extractNoteEvents(bytes) {
-            const events = [];
             let pos = 0;
 
             // Read header
-            if (String.fromCharCode(...bytes.slice(0, 4)) !== 'MThd') return events;
+            if (String.fromCharCode(...bytes.slice(0, 4)) !== 'MThd') return [];
             pos = 8;
             const format = (bytes[pos] << 8) | bytes[pos + 1]; pos += 2;
             const numTracks = (bytes[pos] << 8) | bytes[pos + 1]; pos += 2;
             const ticksPerQuarter = (bytes[pos] << 8) | bytes[pos + 1]; pos += 2;
 
-            // Read tracks
             let globalEvents = [];
             for (let t = 0; t < numTracks; t++) {
                 if (pos + 8 > bytes.length) break;
@@ -288,7 +365,6 @@
                 let lastStatus = 0;
 
                 while (pos < trackEnd && pos < bytes.length) {
-                    // Read variable-length delta time
                     let delta = 0;
                     let b;
                     do {
@@ -297,7 +373,6 @@
                     } while (b & 0x80 && pos < trackEnd);
                     tick += delta;
 
-                    // Read event
                     let statusByte = bytes[pos];
                     if (statusByte & 0x80) {
                         lastStatus = statusByte;
@@ -329,10 +404,6 @@
                             b = bytes[pos++];
                             len = (len << 7) | (b & 0x7f);
                         } while (b & 0x80 && pos < trackEnd);
-                        // Tempo change
-                        if (metaType === 0x51 && len === 3) {
-                            // We could handle tempo changes here but we use the slider
-                        }
                         pos += len;
                     } else if (statusByte === 0xf0 || statusByte === 0xf7) {
                         let len = 0;
@@ -346,43 +417,37 @@
                 pos = trackEnd;
             }
 
-            // Convert ticks to relative seconds (at default 120 BPM)
-            // Actual tempo scaling happens at playback time
             const secondsPerTick = 60.0 / (120 * ticksPerQuarter);
-            globalEvents.forEach(e => {
-                e.time = e.tick * secondsPerTick;
-            });
+            globalEvents.forEach(e => { e.time = e.tick * secondsPerTick; });
             globalEvents.sort((a, b) => a.time - b.time || (a.type === 'off' ? -1 : 1));
-
             return globalEvents;
         }
 
         // --- Piano synth using Web Audio API ---
-        function createPianoNote(ctx, frequency, velocity, startTime, duration) {
+        function createPianoNote(ctx, frequency, velocity, time, duration) {
             const gain = ctx.createGain();
             const osc1 = ctx.createOscillator();
             const osc2 = ctx.createOscillator();
 
-            // Simple piano-like timbre
             osc1.type = 'triangle';
             osc1.frequency.value = frequency;
             osc2.type = 'sine';
             osc2.frequency.value = frequency * 2;
 
             const vol = (velocity / 127) * 0.3;
-            gain.gain.setValueAtTime(0, startTime);
-            gain.gain.linearRampToValueAtTime(vol, startTime + 0.01);
-            gain.gain.setValueAtTime(vol, startTime + Math.max(0.01, duration - 0.1));
-            gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration + 0.3);
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(vol, time + 0.01);
+            gain.gain.setValueAtTime(vol, time + Math.max(0.01, duration - 0.1));
+            gain.gain.exponentialRampToValueAtTime(0.001, time + duration + 0.3);
 
             osc1.connect(gain);
             osc2.connect(gain);
             gain.connect(ctx.destination);
 
-            osc1.start(startTime);
-            osc1.stop(startTime + duration + 0.4);
-            osc2.start(startTime);
-            osc2.stop(startTime + duration + 0.4);
+            osc1.start(time);
+            osc1.stop(time + duration + 0.4);
+            osc2.start(time);
+            osc2.stop(time + duration + 0.4);
 
             return { osc1, osc2, gain };
         }
@@ -409,11 +474,10 @@
             btnPlay.disabled = true;
             btnPlay.classList.add('playing');
             btnStop.disabled = false;
-            status.textContent = 'Playing...';
+            statusEl.textContent = 'Playing...';
 
             const tempoRatio = 100 / parseInt(tempoSlider.value);
 
-            // Build note-on/off pairs
             const noteMap = {};
             const notes = [];
             midiEvents.forEach(e => {
@@ -436,20 +500,17 @@
             const totalDuration = notes.reduce((max, n) => Math.max(max, n.start + n.duration), 0);
 
             notes.forEach(n => {
-                const s = createPianoNote(
+                createPianoNote(
                     audioContext,
                     midiToFreq(n.note),
                     n.velocity,
                     startTime + n.start,
                     Math.max(0.05, n.duration)
                 );
-                scheduledNotes.push(s);
             });
 
-            // Highlight tracking with Verovio
             trackPlayback(totalDuration, tempoRatio);
 
-            // Auto-stop
             setTimeout(() => {
                 if (isPlaying) stop();
             }, (totalDuration + 1) * 1000);
@@ -460,13 +521,11 @@
                 if (!isPlaying) return;
                 const elapsed = audioContext.currentTime - startTime;
                 const progress = Math.min(elapsed / totalDuration, 1);
-                status.textContent = `Playing... ${formatTime(elapsed)} / ${formatTime(totalDuration)}`;
+                statusEl.textContent = `Playing... ${formatTime(elapsed)} / ${formatTime(totalDuration)}`;
 
-                // Highlight notes using Verovio's time-to-element mapping
                 try {
                     const timeMs = (elapsed / tempoRatio) * 1000;
                     const elements = vrvToolkit.getElementsAtTime(timeMs);
-                    // Clear previous highlights
                     document.querySelectorAll('.note-highlight').forEach(el => {
                         el.classList.remove('note-highlight');
                         el.style.fill = '';
@@ -482,7 +541,7 @@
                             }
                         });
                     }
-                } catch(e) { /* ignore highlight errors */ }
+                } catch(e) {}
 
                 if (progress < 1) {
                     animationFrame = requestAnimationFrame(tick);
@@ -502,14 +561,13 @@
             btnPlay.disabled = false;
             btnPlay.classList.remove('playing');
             btnStop.disabled = true;
-            status.textContent = 'Ready';
+            statusEl.textContent = 'Ready';
 
             if (animationFrame) {
                 cancelAnimationFrame(animationFrame);
                 animationFrame = null;
             }
 
-            // Clear highlights
             document.querySelectorAll('.note-highlight').forEach(el => {
                 el.classList.remove('note-highlight');
                 el.querySelectorAll('*').forEach(child => {
