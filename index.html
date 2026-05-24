@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Seed is Growing - Piano Score by Rongjin Yu</title>
-    <script src="https://www.verovio.org/javascript/latest/verovio-toolkit-wasm.js"></script>
+    <script src="https://www.verovio.org/javascript/latest/verovio-toolkit-wasm.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/midi-player-js@2.0.16/browser/midiplayer.min.js"></script>
     <style>
@@ -209,12 +209,8 @@
         });
 
         // --- Initialize Verovio + Piano ---
-        async function init() {
+        async function loadScoreAndPiano() {
             try {
-                statusEl.textContent = 'Loading Verovio...';
-                const VerovioModule = await verovio.module;
-                vrvToolkit = new verovio.toolkit();
-
                 statusEl.textContent = 'Loading score...';
                 const response = await fetch('Seed_is_growing_edited.musicxml');
                 if (!response.ok) throw new Error('Failed to fetch MusicXML file');
@@ -260,11 +256,14 @@
             }
         }
 
-        if (typeof verovio !== 'undefined') {
-            init();
-        } else {
-            window.addEventListener('load', init);
-        }
+        // Wait for DOMContentLoaded, then wait for Verovio WASM to initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            statusEl.textContent = 'Loading Verovio...';
+            verovio.module.onRuntimeInitialized = () => {
+                vrvToolkit = new verovio.toolkit();
+                loadScoreAndPiano();
+            };
+        });
 
         // --- Playback with midi-player-js + soundfont-player ---
         btnPlay.addEventListener('click', () => {
