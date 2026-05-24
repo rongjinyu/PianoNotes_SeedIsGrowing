@@ -196,6 +196,9 @@
         <type>quarter</type>
         <stem default-y="-5">up</stem>
         <staff>1</staff>
+        <notations>
+          <slur number="1" type="stop" />
+        </notations>
       </note>
       <backup>
         <duration>30240</duration>
@@ -253,6 +256,9 @@
         <type>quarter</type>
         <stem default-y="-10">up</stem>
         <staff>1</staff>
+        <notations>
+          <slur number="1" type="start" />
+        </notations>
       </note>
       <note default-x="61.25">
         <pitch>
@@ -366,6 +372,9 @@
         <type>quarter</type>
         <stem default-y="-5">up</stem>
         <staff>1</staff>
+        <notations>
+          <slur number="2" type="stop" />
+        </notations>
       </note>
       <backup>
         <duration>30240</duration>
@@ -417,6 +426,9 @@
         <type>quarter</type>
         <stem default-y="-10">up</stem>
         <staff>1</staff>
+        <notations>
+          <slur number="2" type="start" />
+        </notations>
       </note>
       <note default-x="61.25">
         <pitch>
@@ -530,6 +542,9 @@
         <type>quarter</type>
         <stem default-y="-5">up</stem>
         <staff>1</staff>
+        <notations>
+          <slur number="3" type="stop" />
+        </notations>
       </note>
       <backup>
         <duration>30240</duration>
@@ -581,6 +596,9 @@
         <type>quarter</type>
         <stem default-y="-10">up</stem>
         <staff>1</staff>
+        <notations>
+          <slur number="3" type="start" />
+        </notations>
       </note>
       <note default-x="61.25">
         <pitch>
@@ -702,6 +720,9 @@
         <type>quarter</type>
         <stem default-y="-5">up</stem>
         <staff>1</staff>
+        <notations>
+          <slur number="4" type="stop" />
+        </notations>
       </note>
       <backup>
         <duration>30240</duration>
@@ -756,6 +777,9 @@
         <type>quarter</type>
         <stem default-y="-10">up</stem>
         <staff>1</staff>
+        <notations>
+          <slur number="4" type="start" />
+        </notations>
       </note>
       <note default-x="58.125">
         <pitch>
@@ -881,6 +905,9 @@
         <type>quarter</type>
         <stem default-y="0">up</stem>
         <staff>1</staff>
+        <notations>
+          <slur number="5" type="stop" />
+        </notations>
       </note>
       <backup>
         <duration>30240</duration>
@@ -932,6 +959,9 @@
         <type>quarter</type>
         <stem>up</stem>
         <staff>1</staff>
+        <notations>
+          <slur number="5" type="start" />
+        </notations>
       </note>
       <note default-x="16.875">
         <chord />
@@ -1057,6 +1087,9 @@
         <type>quarter</type>
         <stem default-y="7.5">up</stem>
         <staff>1</staff>
+        <notations>
+          <slur number="6" type="stop" />
+        </notations>
       </note>
       <backup>
         <duration>30240</duration>
@@ -1108,6 +1141,9 @@
         <type>quarter</type>
         <stem>down</stem>
         <staff>1</staff>
+        <notations>
+          <slur number="6" type="start" />
+        </notations>
       </note>
       <note default-x="16.875">
         <chord />
@@ -1242,6 +1278,9 @@
         <type>quarter</type>
         <stem default-y="-47.5">down</stem>
         <staff>1</staff>
+        <notations>
+          <slur number="1" type="stop" />
+        </notations>
       </note>
       <backup>
         <duration>30240</duration>
@@ -1301,6 +1340,9 @@
         <type>quarter</type>
         <stem>down</stem>
         <staff>1</staff>
+        <notations>
+          <slur number="1" type="start" />
+        </notations>
       </note>
       <note default-x="47.5">
         <chord />
@@ -1444,6 +1486,9 @@
         <type>quarter</type>
         <stem default-y="-40">down</stem>
         <staff>1</staff>
+        <notations>
+          <slur number="2" type="stop" />
+        </notations>
       </note>
       <backup>
         <duration>30240</duration>
@@ -1495,6 +1540,9 @@
         <type>quarter</type>
         <stem default-y="-43.75">down</stem>
         <staff>1</staff>
+        <notations>
+          <slur number="2" type="start" />
+        </notations>
       </note>
       <note default-x="56.875">
         <pitch>
@@ -1608,6 +1656,9 @@
         <type>quarter</type>
         <stem default-y="-40">down</stem>
         <staff>1</staff>
+        <notations>
+          <slur number="3" type="stop" />
+        </notations>
       </note>
       <backup>
         <duration>30240</duration>
@@ -1677,6 +1728,9 @@
         <type>quarter</type>
         <stem default-y="-43.75">down</stem>
         <staff>1</staff>
+        <notations>
+          <slur number="3" type="start" />
+        </notations>
       </note>
       <note default-x="56.875">
         <pitch>
